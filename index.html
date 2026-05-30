@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>eclipse | Hub</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #050506;
+      --card: rgba(255,255,255,0.045);
+      --card-hover: rgba(255,255,255,0.07);
+      --border: rgba(255,255,255,0.09);
+      --text: #e8e8e8;
+      --muted: #666;
+      --green: #57F287;
+      --dnd: #ed4245;
+    }
+    html, body {
+      background: var(--bg);
+      font-family: 'Inter', sans-serif;
+      color: var(--text);
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 40px 16px 60px;
+      overflow-x: hidden;
+    }
+
+    /* ── BG OVERLAY ── */
+    .bg-overlay {
+      position: fixed; inset: 0; z-index: 1;
+      background: radial-gradient(ellipse at center, rgba(5,5,6,0.3) 0%, rgba(5,5,6,0.75) 100%);
+    }
+
+    /* ── HUB ── */
+    .hub {
+      position: relative; z-index: 2;
+      width: 100%; max-width: 420px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+
+    /* PROFILE */
+    .profile {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 36px 28px 28px;
+      display: flex; flex-direction: column; align-items: center; text-align: center;
+      backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+      animation: up 0.5s ease both;
+    }
+
+    .avatar-wrap { position: relative; margin-bottom: 18px; }
+    .avatar {
+      width: 88px; height: 88px; border-radius: 50%;
+      background: #3ba55d;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .avatar svg { width: 50px; height: 50px; }
+
+    /* DND — red circle with dash */
+    .status {
+      position: absolute; bottom: 2px; right: 2px;
+      width: 18px; height: 18px; border-radius: 50%;
+      background: var(--dnd); border: 3px solid var(--bg);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .status::after {
+      content: ''; width: 8px; height: 2px;
+      background: #fff; border-radius: 2px;
+    }
+
+    .name { font-size: 1.2rem; font-weight: 600; color: #fff; margin-bottom: 4px; }
+    .pronouns { font-size: 0.72rem; color: var(--muted); margin-bottom: 12px; }
+
+    .tag-row {
+      display: flex; gap: 6px; flex-wrap: wrap;
+      justify-content: center; margin-bottom: 14px;
+    }
+    .tag {
+      font-size: 0.69rem; font-weight: 500;
+      padding: 3px 10px; border-radius: 99px;
+      background: rgba(87,242,135,0.1);
+      color: var(--green);
+      border: 1px solid rgba(87,242,135,0.25);
+    }
+
+    /* Bio with white neon glow */
+    .bio {
+      font-size: 0.82rem; font-weight: 500;
+      color: #fff;
+      text-shadow:
+        0 0 8px rgba(255,255,255,0.9),
+        0 0 20px rgba(255,255,255,0.5),
+        0 0 40px rgba(255,255,255,0.2);
+      letter-spacing: 0.01em;
+    }
+
+    /* PLAYER */
+    .player-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px 20px;
+      backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+      animation: up 0.5s 0.07s ease both;
+    }
+    .player-label {
+      font-size: 0.6rem; font-weight: 500;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 12px;
+    }
+    .player-inner { display: flex; align-items: center; gap: 13px; }
+
+    .thumb {
+      width: 46px; height: 46px; border-radius: 9px;
+      overflow: hidden; flex-shrink: 0;
+      border: 1px solid var(--border);
+      background: #111;
+    }
+    .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    .player-info { flex: 1; min-width: 0; }
+    .player-title { font-size: 0.86rem; font-weight: 600; color: #fff; }
+    .player-artist { font-size: 0.7rem; color: var(--muted); margin-top: 2px; }
+
+    .play-btn {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: var(--green);
+      border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; color: #050506;
+      transition: transform 0.15s, background 0.15s;
+      box-shadow: 0 0 14px rgba(87,242,135,0.35);
+    }
+    .play-btn:hover { transform: scale(1.08); background: #6fff9e; }
+    .play-btn.paused { background: rgba(255,255,255,0.15); color: #fff; box-shadow: none; }
+
+    .progress-wrap { margin-top: 13px; cursor: pointer; }
+    .progress-bg {
+      height: 3px; background: rgba(255,255,255,0.08);
+      border-radius: 99px; overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%; background: var(--green);
+      border-radius: 99px; width: 0%;
+      transition: width 0.4s linear;
+    }
+    .time-row { display: flex; justify-content: space-between; margin-top: 5px; }
+    .t { font-size: 0.6rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+    /* LINKS */
+    .links { display: flex; flex-direction: column; gap: 8px; animation: up 0.5s 0.12s ease both; }
+    .link-item {
+      background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+      padding: 13px 17px; display: flex; align-items: center; gap: 12px;
+      text-decoration: none; color: var(--text);
+      transition: background 0.15s, border-color 0.15s, transform 0.15s;
+      backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+    }
+    .link-item:hover { background: var(--card-hover); border-color: rgba(255,255,255,0.13); transform: translateY(-1px); }
+    .link-icon {
+      width: 34px; height: 34px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; background: rgba(88,101,242,0.15);
+    }
+    .link-name { font-size: 0.83rem; font-weight: 500; color: #fff; }
+    .link-sub  { font-size: 0.68rem; color: var(--muted); margin-top: 1px; }
+    .arrow { color: rgba(255,255,255,0.18); margin-left: auto; font-size: 0.85rem; }
+
+    .footer {
+      font-size: 0.65rem; color: #333;
+      text-align: center; margin-top: 4px; letter-spacing: 0.08em;
+      animation: up 0.5s 0.2s ease both;
+      background: rgba(255,255,255,0.92);
+      padding: 6px 14px;
+      border-radius: 99px;
+      font-weight: 500;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+
+    @keyframes up {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .join-btn {
+      padding: 7px 16px;
+      border-radius: 99px;
+      background: #5865f2;
+      color: #fff;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-decoration: none;
+      flex-shrink: 0;
+      transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
+      box-shadow: 0 0 12px rgba(88,101,242,0.4);
+      letter-spacing: 0.02em;
+    }
+    .join-btn:hover {
+      background: #4752c4;
+      transform: scale(1.05);
+      box-shadow: 0 0 20px rgba(88,101,242,0.6);
+    }
+
+    /* ── ANIMATED CANVAS BG ── */
+    #bg-canvas {
+      position: fixed; inset: 0; z-index: 0;
+      width: 100%; height: 100%;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ANIMATED BACKGROUND -->
+<canvas id="bg-canvas"></canvas>
+<div class="bg-overlay"></div>
+
+
+
+<div class="hub">
+
+  <!-- PROFILE -->
+  <div class="profile">
+    <div class="avatar-wrap">
+      <div class="avatar">
+        <svg viewBox="0 0 71 55" fill="white" xmlns="http://www.w3.org/2000/svg">
+          <path d="M60.1 4.9A58.5 58.5 0 0 0 45.5.7a.2.2 0 0 0-.2.1 40.7 40.7 0 0 0-1.8 3.7 54 54 0 0 0-16.2 0A37.6 37.6 0 0 0 25.5.8a.2.2 0 0 0-.2-.1A58.4 58.4 0 0 0 10.7 4.9a.2.2 0 0 0-.1.1C1.5 18.3-1 31.4.3 44.3a.2.2 0 0 0 .1.1 58.8 58.8 0 0 0 17.7 9 .2.2 0 0 0 .2-.1 42 42 0 0 0 3.6-5.9.2.2 0 0 0-.1-.3 38.7 38.7 0 0 1-5.5-2.6.2.2 0 0 1 0-.3l1.1-.9a.2.2 0 0 1 .2 0c11.5 5.3 24 5.3 35.4 0a.2.2 0 0 1 .2 0l1.1.9a.2.2 0 0 1 0 .3 36 36 0 0 1-5.5 2.6.2.2 0 0 0-.1.3 47.1 47.1 0 0 0 3.6 5.9.2.2 0 0 0 .2.1 58.6 58.6 0 0 0 17.8-9 .2.2 0 0 0 .1-.1c1.5-15.2-2.5-28.2-10.6-39.8a.2.2 0 0 0-.1 0zM23.7 36.4c-3.5 0-6.4-3.2-6.4-7.1s2.8-7.1 6.4-7.1c3.6 0 6.5 3.2 6.4 7.1 0 3.9-2.8 7.1-6.4 7.1zm23.6 0c-3.5 0-6.4-3.2-6.4-7.1s2.8-7.1 6.4-7.1c3.6 0 6.5 3.2 6.4 7.1 0 3.9-2.8 7.1-6.4 7.1z"/>
+        </svg>
+      </div>
+      <div class="status"></div>
+    </div>
+
+    <div class="name">eclipse</div>
+    <div class="pronouns">they / them</div>
+
+    <div class="tag-row">
+      <span class="tag">🌐 Cybersecurity</span>
+      <span class="tag">📍 England</span>
+      <span class="tag">🔐 OPSEC</span>
+    </div>
+
+    <p class="bio">Manager, developer</p>
+  </div>
+
+  <!-- PLAYER -->
+  <div class="player-card">
+    <div class="player-label">Featured</div>
+    <div class="player-inner">
+      <div class="thumb">
+        <img id="thumbImg"
+          src="data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCAAjACoDASIAAhEBAxEB/8QAFwABAQEBAAAAAAAAAAAAAAAAAAYHBf/EAC8QAAEDBAECBAQGAwAAAAAAAAIBAwQABQYREgchExRBURUxMmEWFyIjYnFzkaH/xAAYAQADAQEAAAAAAAAAAAAAAAAAAgQBBf/EACIRAAICAgEDBQAAAAAAAAAAAAECAAMEERITMUEhYXHw8f/aAAwDAQACEQMRAD8AxXBLF+JswtdhWSkUJsgWze48vDD5kWvVURFXXaq2wRsJzNybimPY8/bLn5YnrPOkzSdkTX20UiZdHs0nMELigiioSInIt1zOiaiHUFmSe+MW33CTv2VuE+aL/sUriWOy3+LjZZ/aSIGLRcmWSeb+th1U5tn/AFtNb91T3pydGYJZOHBxi3YrjaYfZb1dLxGGXOSe274qE+4osNgYGJt/toBdl+bm+/apfqharXY+oV9tFlNwrfEmusscy5KgiSprfqia7L7aqix3LZuQ9aPzHvFvakFHkjK8uJqIIYBpkEXv2FRBf6H03VPcLxHmlInr09xt2OpqrxeRdJN/yd58t/fklX4uBbkIWUfG4zqUr6hHpMSpVx1isNnsV6tvwiMcHz1sZmSYKuq4kRxzZIAkX6tKCgWi2qctbWoepHRkbi3eIDsbnawy/uY1fEuIQ2JrRsPRpEZ5SQHmXWybcBVFUIdiS6VFRUWrWH1Sttosblgx7C4UWyzHDO6QJMt58JiEKDrkpIQcdIoqi7QtLv0rMKVgOvE0HU2nIYdjZh2efjtoatUC52xqX4DTpuCjq8gc0RkRLowJO6+lUWVL1MlX63SMAvpQcVCFHGO43cQYiRtNijqPipaQkNDUuSKpb7b2iVnPT3MLP8CHE8uOQzAacJ23XFhvxDhGf1gQbTm0S99J3Fdqm9qlUp4/jpp5guo2LeS+fiCb5O6/xeFy39v+13KGqyaFrLcSPbf39leTeLKFC9x4kh1Zsd4aksZRNv7GRx7m4ba3FkSFPGb0hNkJIiiqJxUe2lFU1rWkhK0TqFldhXGAw3FQkSLeMtJkqfKHi5JeEVBFEEVUbBEItJtVXfdeyJWd1y8tVW08TsSFCxUc+8UpSpo0UpSiEUpSiE//2Q=="
+          alt="Nightcord logo"/>
+      </div>
+      <div class="player-info">
+        <div class="player-title">Nightcord</div>
+        <div class="player-artist">Best modified discord client · /nightcord</div>
+      </div>
+      <a href="https://discord.gg/nightcord" target="_blank" rel="noopener" class="join-btn" aria-label="Join Nightcord">
+        Join
+      </a>
+    </div>
+  </div>
+
+  <!-- LINKS -->
+  <div class="links">
+    <a href="https://discord.gg/WbNPqWBeBQ" target="_blank" rel="noopener" class="link-item">
+      <div class="link-icon">
+        <svg width="18" height="14" viewBox="0 0 71 55" fill="#5865f2">
+          <path d="M60.1 4.9A58.5 58.5 0 0 0 45.5.7a.2.2 0 0 0-.2.1 40.7 40.7 0 0 0-1.8 3.7 54 54 0 0 0-16.2 0A37.6 37.6 0 0 0 25.5.8a.2.2 0 0 0-.2-.1A58.4 58.4 0 0 0 10.7 4.9a.2.2 0 0 0-.1.1C1.5 18.3-1 31.4.3 44.3a.2.2 0 0 0 .1.1 58.8 58.8 0 0 0 17.7 9 .2.2 0 0 0 .2-.1 42 42 0 0 0 3.6-5.9.2.2 0 0 0-.1-.3 38.7 38.7 0 0 1-5.5-2.6.2.2 0 0 1 0-.3l1.1-.9a.2.2 0 0 1 .2 0c11.5 5.3 24 5.3 35.4 0a.2.2 0 0 1 .2 0l1.1.9a.2.2 0 0 1 0 .3 36 36 0 0 1-5.5 2.6.2.2 0 0 0-.1.3 47.1 47.1 0 0 0 3.6 5.9.2.2 0 0 0 .2.1 58.6 58.6 0 0 0 17.8-9 .2.2 0 0 0 .1-.1c1.5-15.2-2.5-28.2-10.6-39.8a.2.2 0 0 0-.1 0zM23.7 36.4c-3.5 0-6.4-3.2-6.4-7.1s2.8-7.1 6.4-7.1c3.6 0 6.5 3.2 6.4 7.1 0 3.9-2.8 7.1-6.4 7.1zm23.6 0c-3.5 0-6.4-3.2-6.4-7.1s2.8-7.1 6.4-7.1c3.6 0 6.5 3.2 6.4 7.1 0 3.9-2.8 7.1-6.4 7.1z"/>
+        </svg>
+      </div>
+      <div>
+        <div class="link-name">Contact</div>
+        <div class="link-sub">discord.gg/WbNPqWBeBQ</div>
+      </div>
+      <span class="arrow">›</span>
+    </a>
+  </div>
+
+  <div class="footer">eclipse · they/them · england · 2025</div>
+</div>
+
+<script>
+// ── ANIMATED BACKGROUND: aurora + stars ──────────────────────
+const canvas = document.getElementById('bg-canvas');
+const ctx = canvas.getContext('2d');
+let W, H;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Stars
+const STAR_COUNT = 180;
+const stars = Array.from({length: STAR_COUNT}, () => ({
+  x: Math.random(),
+  y: Math.random(),
+  r: Math.random() * 1.4 + 0.3,
+  a: Math.random(),
+  speed: Math.random() * 0.0004 + 0.0001,
+  phase: Math.random() * Math.PI * 2
+}));
+
+// Aurora blobs
+const blobs = [
+  { x: 0.2, y: 0.3, rx: 0.55, ry: 0.3,  hue: 200, speed: 0.00018, phase: 0 },
+  { x: 0.7, y: 0.5, rx: 0.5,  ry: 0.28, hue: 260, speed: 0.00013, phase: 1.5 },
+  { x: 0.45,y: 0.7, rx: 0.6,  ry: 0.22, hue: 180, speed: 0.00021, phase: 3.0 },
+  { x: 0.6, y: 0.2, rx: 0.4,  ry: 0.25, hue: 230, speed: 0.00016, phase: 4.5 },
+];
+
+let t = 0;
+function draw() {
+  t++;
+
+  // Deep space background
+  ctx.fillStyle = '#050508';
+  ctx.fillRect(0, 0, W, H);
+
+  // Aurora layers
+  blobs.forEach(b => {
+    const cx = (b.x + Math.sin(t * b.speed + b.phase) * 0.12) * W;
+    const cy = (b.y + Math.cos(t * b.speed * 0.7 + b.phase) * 0.1) * H;
+    const pulse = 1 + Math.sin(t * b.speed * 2 + b.phase) * 0.08;
+
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, b.rx * W * pulse);
+    const alpha = 0.13 + Math.sin(t * b.speed * 1.3 + b.phase) * 0.04;
+    grad.addColorStop(0,   `hsla(${b.hue}, 90%, 65%, ${alpha})`);
+    grad.addColorStop(0.4, `hsla(${b.hue + 20}, 80%, 50%, ${alpha * 0.5})`);
+    grad.addColorStop(1,   `hsla(${b.hue + 40}, 70%, 40%, 0)`);
+
+    ctx.save();
+    ctx.scale(1, b.ry / b.rx);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(cx, cy * (b.rx / b.ry), b.rx * W * pulse, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  });
+
+  // Stars
+  stars.forEach(s => {
+    const flicker = s.a * (0.6 + 0.4 * Math.sin(t * s.speed * 60 + s.phase));
+    ctx.beginPath();
+    ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255,255,255,${flicker})`;
+    ctx.fill();
+  });
+
+  requestAnimationFrame(draw);
+}
+draw();
+</script>
+</body>
+</html>
