@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>eclipse | Hub</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #000000;
+      --card: rgba(255,255,255,0.028);
+      --card-hover: rgba(255,255,255,0.055);
+      --border: rgba(255,255,255,0.06);
+      --border-glow: rgba(120,80,255,0.3);
+      --text: #c8c8d8;
+      --muted: #444458;
+      --green: #39ffb0;
+      --green-dim: rgba(57,255,176,0.12);
+      --purple: #9d6fff;
+      --blue: #4f8fff;
+      --dnd: #ed4245;
+      --cursor-size: 18px;
+    }
+
+    /* ── CURSOR ── */
+    *, *::before, *::after { cursor: none !important; }
+
+    #cursor {
+      position: fixed; z-index: 9999;
+      width: 4px; height: 4px;
+      border-radius: 50%;
+      background: #fff;
+      pointer-events: none;
+      transform: translate(-50%,-50%);
+      transition: opacity 0.2s;
+    }
+
+    #cursor-ring {
+      position: fixed; z-index: 9998;
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.6);
+      pointer-events: none;
+      transform: translate(-50%,-50%);
+      transition: width 0.3s cubic-bezier(.16,1,.3,1), height 0.3s cubic-bezier(.16,1,.3,1), border-color 0.3s, opacity 0.3s;
+    }
+
+    body.cursor-hover #cursor { opacity: 0; }
+    body.cursor-hover #cursor-ring {
+      width: 44px; height: 44px;
+      border-color: rgba(255,255,255,0.9);
+    }
+    body.cursor-click #cursor-ring {
+      width: 16px; height: 16px;
+      border-color: #fff;
+    }
+
+    html, body {
+      background: var(--bg);
+      font-family: 'Space Grotesk', sans-serif;
+      color: var(--text);
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 48px 16px 72px;
+      overflow-x: hidden;
+    }
+
+    /* ── BG ── */
+    #bg-canvas {
+      position: fixed; inset: 0; z-index: 0;
+      width: 100%; height: 100%;
+    }
+    .bg-vignette {
+      position: fixed; inset: 0; z-index: 1;
+      background: radial-gradient(ellipse at 50% 50%, transparent 20%, rgba(0,0,0,0.92) 100%);
+      pointer-events: none;
+    }
+    /* subtle scanlines */
+    .scanlines {
+      position: fixed; inset: 0; z-index: 2;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 3px,
+        rgba(0,0,0,0.06) 3px,
+        rgba(0,0,0,0.06) 4px
+      );
+      pointer-events: none;
+    }
+
+    /* ── HUB ── */
+    .hub {
+      position: relative; z-index: 10;
+      width: 100%; max-width: 440px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+
+    /* ── PROFILE ── */
+    .profile {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 40px 30px 30px;
+      display: flex; flex-direction: column; align-items: center; text-align: center;
+      backdrop-filter: blur(32px); -webkit-backdrop-filter: blur(32px);
+      position: relative; overflow: hidden;
+      animation: revealUp 0.7s cubic-bezier(.22,1,.36,1) both;
+    }
+    .profile::before {
+      content: '';
+      position: absolute; top: 0; left: -100%; right: -100%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.8) 40%, rgba(255,255,255,0.4) 60%, transparent 100%);
+      animation: shimmerLine 3s ease-in-out infinite;
+      opacity: 0.7;
+    }
+    /* inner glow */
+    .profile::after {
+      content: '';
+      position: absolute; inset: 0; border-radius: 20px;
+      background: radial-gradient(ellipse at 50% -10%, rgba(100,60,255,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    @keyframes shimmerLine {
+      0%   { transform: translateX(-60%); }
+      100% { transform: translateX(60%); }
+    }
+
+    /* AVATAR */
+    .avatar-wrap { position: relative; margin-bottom: 20px; }
+    .avatar-ring {
+      position: absolute; inset: -6px; border-radius: 50%;
+      background: conic-gradient(
+        #ffffff 0deg,
+        rgba(255,255,255,0.3) 60deg,
+        #ffffff 120deg,
+        rgba(255,255,255,0.15) 180deg,
+        #ffffff 240deg,
+        rgba(255,255,255,0.3) 300deg,
+        #ffffff 360deg
+      );
+      animation: spinRing 3s linear infinite;
+      opacity: 1;
+      filter: blur(0.5px) drop-shadow(0 0 6px rgba(255,255,255,0.9)) drop-shadow(0 0 16px rgba(255,255,255,0.5));
+    }
+    .avatar-ring-mask {
+      position: absolute; inset: -3px; border-radius: 50%;
+      background: #000000;
+    }
+    @keyframes spinRing { to { transform: rotate(360deg); } }
+    .avatar {
+      position: relative; z-index: 1;
+      width: 90px; height: 90px; border-radius: 50%;
+      background: radial-gradient(135deg at 35% 35%, #1a1a2e 0%, #050508 100%);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 20px rgba(255,255,255,0.15), inset 0 0 20px rgba(0,0,0,0.6);
+    }
+    .avatar svg { width: 48px; height: 48px; filter: drop-shadow(0 0 6px rgba(255,255,255,0.4)); }
+
+    .status {
+      position: absolute; bottom: 3px; right: 3px; z-index: 2;
+      width: 19px; height: 19px; border-radius: 50%;
+      background: var(--dnd); border: 3px solid var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 8px rgba(237,66,69,0.6);
+    }
+    .status::after {
+      content: ''; width: 8px; height: 2px;
+      background: #fff; border-radius: 2px;
+    }
+
+    .name {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.5rem; font-weight: 800;
+      color: #fff; margin-bottom: 3px;
+      letter-spacing: -0.02em;
+      text-shadow: 0 0 30px rgba(157,111,255,0.4);
+    }
+    .pronouns { font-size: 0.7rem; color: var(--muted); margin-bottom: 14px; letter-spacing: 0.1em; text-transform: uppercase; }
+
+    .tag-row {
+      display: flex; gap: 6px; flex-wrap: wrap;
+      justify-content: center; margin-bottom: 18px;
+    }
+    .tag {
+      font-size: 0.67rem; font-weight: 500;
+      padding: 4px 11px; border-radius: 99px;
+      background: rgba(255,255,255,0.05);
+      color: rgba(255,255,255,0.85);
+      border: 1px solid rgba(255,255,255,0.18);
+      letter-spacing: 0.04em;
+      transition: background 0.2s, border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+    }
+    .tag:hover {
+      background: rgba(255,255,255,0.1);
+      border-color: rgba(255,255,255,0.5);
+      box-shadow: 0 0 10px rgba(255,255,255,0.15);
+      transform: translateY(-2px);
+    }
+
+    .bio {
+      font-size: 0.85rem; font-weight: 500;
+      color: rgba(255,255,255,0.9);
+      text-shadow:
+        0 0 12px rgba(255,255,255,0.8),
+        0 0 30px rgba(255,255,255,0.35),
+        0 0 60px rgba(200,180,255,0.15);
+      letter-spacing: 0.02em;
+    }
+
+
+
+    /* ── PLAYER ── */
+    .player-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px 20px;
+      backdrop-filter: blur(32px); -webkit-backdrop-filter: blur(32px);
+      animation: revealUp 0.7s 0.08s cubic-bezier(.22,1,.36,1) both;
+      position: relative; overflow: hidden;
+      transition: border-color 0.3s;
+    }
+    .player-card:hover { border-color: rgba(255,255,255,0.15); box-shadow: 0 0 20px rgba(255,255,255,0.04); }
+    .player-card::before {
+      content: ''; position: absolute;
+      inset: 0; border-radius: 16px;
+      background: radial-gradient(ellipse at 50% 100%, rgba(57,255,176,0.04) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .player-label {
+      font-size: 0.58rem; font-weight: 600;
+      letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 13px;
+    }
+    .player-inner { display: flex; align-items: center; gap: 14px; }
+
+    .thumb {
+      width: 48px; height: 48px; border-radius: 10px;
+      overflow: hidden; flex-shrink: 0;
+      border: 1px solid rgba(57,255,176,0.15);
+      background: #111;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+    .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    .player-info { flex: 1; min-width: 0; }
+    .player-title { font-size: 0.87rem; font-weight: 600; color: #fff; }
+    .player-artist { font-size: 0.68rem; color: var(--muted); margin-top: 2px; }
+
+    .join-btn {
+      padding: 8px 18px;
+      border-radius: 99px;
+      background: transparent;
+      color: #fff;
+      font-size: 0.72rem; font-weight: 700;
+      text-decoration: none; flex-shrink: 0;
+      border: 1px solid rgba(255,255,255,0.7);
+      box-shadow: 0 0 10px rgba(255,255,255,0.2), inset 0 0 10px rgba(255,255,255,0.04);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      transition: background 0.2s, box-shadow 0.2s, transform 0.2s, border-color 0.2s;
+    }
+    .join-btn:hover {
+      background: rgba(255,255,255,0.08);
+      border-color: #fff;
+      box-shadow: 0 0 18px rgba(255,255,255,0.5), 0 0 40px rgba(255,255,255,0.15), inset 0 0 14px rgba(255,255,255,0.06);
+      transform: translateY(-2px);
+    }
+
+    /* ── LINKS ── */
+    .links { display: flex; flex-direction: column; gap: 8px; animation: revealUp 0.7s 0.14s cubic-bezier(.22,1,.36,1) both; }
+    .link-item {
+      background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+      padding: 14px 18px; display: flex; align-items: center; gap: 13px;
+      text-decoration: none; color: var(--text);
+      transition: background 0.2s, border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+      backdrop-filter: blur(32px); -webkit-backdrop-filter: blur(32px);
+      position: relative; overflow: hidden;
+    }
+    .link-item::before {
+      content: ''; position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent);
+      transform: translateX(-100%);
+      transition: transform 0.5s ease;
+    }
+    .link-item:hover::before { transform: translateX(100%); }
+    .link-item:hover {
+      background: var(--card-hover);
+      border-color: rgba(255,255,255,0.2);
+      transform: translateX(4px);
+      box-shadow: -2px 0 0 rgba(255,255,255,0.8), 0 0 20px rgba(255,255,255,0.05);
+    }
+    .link-icon {
+      width: 36px; height: 36px; border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+    }
+    .link-item:hover .link-icon {
+      background: rgba(255,255,255,0.09);
+      border-color: rgba(255,255,255,0.25);
+      box-shadow: 0 0 10px rgba(255,255,255,0.1);
+    }
+    .link-name { font-size: 0.84rem; font-weight: 600; color: #fff; }
+    .link-sub  { font-size: 0.66rem; color: var(--muted); margin-top: 1px; }
+    .arrow { color: rgba(255,255,255,0.15); margin-left: auto; font-size: 1rem; transition: color 0.2s, transform 0.2s; }
+    .link-item:hover .arrow { color: rgba(255,255,255,0.9); transform: translateX(3px); }
+
+    /* ── FOOTER ── */
+    .footer {
+      font-size: 0.62rem; color: rgba(255,255,255,0.5);
+      text-align: center; margin-top: 2px; letter-spacing: 0.12em;
+      animation: revealUp 0.7s 0.22s cubic-bezier(.22,1,.36,1) both;
+      text-transform: uppercase;
+    }
+
+    /* ── TOOLTIP ── */
+    #tooltip {
+      position: fixed; z-index: 9990;
+      background: rgba(10,10,15,0.92);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 0.68rem; color: #fff;
+      letter-spacing: 0.04em;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s;
+      backdrop-filter: blur(16px);
+      white-space: nowrap;
+      box-shadow: 0 0 12px rgba(255,255,255,0.1);
+    }
+
+    @keyframes revealUp {
+      from { opacity: 0; transform: translateY(20px) scale(0.98); filter: blur(4px); }
+      to   { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+    }
+
+
+  </style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+<div class="bg-vignette"></div>
+<div class="scanlines"></div>
+
+<!-- CUSTOM CURSOR -->
+<div id="cursor"></div>
+<div id="cursor-ring"></div>
+<div id="tooltip"></div>
+
+<div class="hub">
+
+  <!-- PROFILE -->
+  <div class="profile">
+    <div class="avatar-wrap">
+      <div class="avatar-ring"></div>
+      <div class="avatar-ring-mask"></div>
+      <div class="avatar">
+        <svg viewBox="0 0 71 55" fill="white" xmlns="http://www.w3.org/2000/svg">
+          <path d="M60.1 4.9A58.5 58.5 0 0 0 45.5.7a.2.2 0 0 0-.2.1 40.7 40.7 0 0 0-1.8 3.7 54 54 0 0 0-16.2 0A37.6 37.6 0 0 0 25.5.8a.2.2 0 0 0-.2-.1A58.4 58.4 0 0 0 10.7 4.9a.2.2 0 0 0-.1.1C1.5 18.3-1 31.4.3 44.3a.2.2 0 0 0 .1.1 58.8 58.8 0 0 0 17.7 9 .2.2 0 0 0 .2-.1 42 42 0 0 0 3.6-5.9.2.2 0 0 0-.1-.3 38.7 38.7 0 0 1-5.5-2.6.2.2 0 0 1 0-.3l1.1-.9a.2.2 0 0 1 .2 0c11.5 5.3 24 5.3 35.4 0a.2.2 0 0 1 .2 0l1.1.9a.2.2 0 0 1 0 .3 36 36 0 0 1-5.5 2.6.2.2 0 0 0-.1.3 47.1 47.1 0 0 0 3.6 5.9.2.2 0 0 0 .2.1 58.6 58.6 0 0 0 17.8-9 .2.2 0 0 0 .1-.1c1.5-15.2-2.5-28.2-10.6-39.8a.2.2 0 0 0-.1 0zM23.7 36.4c-3.5 0-6.4-3.2-6.4-7.1s2.8-7.1 6.4-7.1c3.6 0 6.5 3.2 6.4 7.1 0 3.9-2.8 7.1-6.4 7.1zm23.6 0c-3.5 0-6.4-3.2-6.4-7.1s2.8-7.1 6.4-7.1c3.6 0 6.5 3.2 6.4 7.1 0 3.9-2.8 7.1-6.4 7.1z"/>
+        </svg>
+      </div>
+      <div class="status"></div>
+    </div>
+
+    <div class="name">eclipse</div>
+    <div class="pronouns">they / them</div>
+
+    <div class="tag-row">
+      <span class="tag" data-tip="Cybersecurity enthusiast">🌐 Cybersecurity</span>
+      <span class="tag" data-tip="Based in England">📍 England</span>
+      <span class="tag" data-tip="Operational security">🔐 OPSEC</span>
+    </div>
+
+    <p class="bio">Manager &amp; developer</p>
+
+
+  </div>
+
+  <!-- PLAYER -->
+  <div class="player-card">
+    <div class="player-label">Featured</div>
+    <div class="player-inner">
+      <div class="thumb">
+        <img id="thumbImg"
+          src="data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCAAjACoDASIAAhEBAxEB/8QAFwABAQEBAAAAAAAAAAAAAAAAAAYHBf/EAC8QAAEDBAECBAQGAwAAAAAAAAIBAwQABQYREgchExRBURUxMmEWFyIjYnFzkaH/xAAYAQADAQEAAAAAAAAAAAAAAAAAAgQBBf/EACIRAAICAgEDBQAAAAAAAAAAAAECAAMEERITMUEhYXHw8f/aAAwDAQACEQMRAD8AxXBLF+JswtdhWSkUJsgWze48vDD5kWvVURFXXaq2wRsJzNybimPY8/bLn5YnrPOkzSdkTX20UiZdHs0nMELigiioSInIt1zOiaiHUFmSe+MW33CTv2VuE+aL/sUriWOy3+LjZZ/aSIGLRcmWSeb+th1U5tn/AFtNb91T3pydGYJZOHBxi3YrjaYfZb1dLxGGXOSe274qE+4osNgYGJt/toBdl+bm+/apfqharXY+oV9tFlNwrfEmusscy5KgiSprfqia7L7aqix3LZuQ9aPzHvFvakFHkjK8uJqIIYBpkEXv2FRBf6H03VPcLxHmlInr09xt2OpqrxeRdJN/yd58t/fklX4uBbkIWUfG4zqUr6hHpMSpVx1isNnsV6tvwiMcHz1sZmSYKuq4kRxzZIAkX6tKCgWi2qctbWoepHRkbi3eIDsbnawy/uY1fEuIQ2JrRsPRpEZ5SQHmXWybcBVFUIdiS6VFRUWrWH1Sttosblgx7C4UWyzHDO6QJMt58JiEKDrkpIQcdIoqi7QtLv0rMKVgOvE0HU2nIYdjZh2efjtoatUC52xqX4DTpuCjq8gc0RkRLowJO6+lUWVL1MlX63SMAvpQcVCFHGO43cQYiRtNijqPipaQkNDUuSKpb7b2iVnPT3MLP8CHE8uOQzAacJ23XFhvxDhGf1gQbTm0S99J3Fdqm9qlUp4/jpp5guo2LeS+fiCb5O6/xeFy39v+13KGqyaFrLcSPbf39leTeLKFC9x4kh1Zsd4aksZRNv7GRx7m4ba3FkSFPGb0hNkJIiiqJxUe2lFU1rWkhK0TqFldhXGAw3FQkSLeMtJkqfKHi5JeEVBFEEVUbBEItJtVXfdeyJWd1y8tVW08TsSFCxUc+8UpSpo0UpSiEUpSiE//2Q=="
+          alt="Nightcord logo"/>
+      </div>
+      <div class="player-info">
+        <div class="player-title">Nightcord</div>
+        <div class="player-artist">Best modified discord client · /nightcord</div>
+      </div>
+      <a href="https://discord.gg/nightcord" target="_blank" rel="noopener" class="join-btn" data-tip="Join Nightcord">
+        Join
+      </a>
+    </div>
+  </div>
+
+  <!-- LINKS -->
+  <div class="links">
+    <a href="https://discord.gg/WbNPqWBeBQ" target="_blank" rel="noopener" class="link-item" data-tip="Open Discord server">
+      <div class="link-icon">
+        <svg width="18" height="14" viewBox="0 0 71 55" fill="#5865f2">
+          <path d="M60.1 4.9A58.5 58.5 0 0 0 45.5.7a.2.2 0 0 0-.2.1 40.7 40.7 0 0 0-1.8 3.7 54 54 0 0 0-16.2 0A37.6 37.6 0 0 0 25.5.8a.2.2 0 0 0-.2-.1A58.4 58.4 0 0 0 10.7 4.9a.2.2 0 0 0-.1.1C1.5 18.3-1 31.4.3 44.3a.2.2 0 0 0 .1.1 58.8 58.8 0 0 0 17.7 9 .2.2 0 0 0 .2-.1 42 42 0 0 0 3.6-5.9.2.2 0 0 0-.1-.3 38.7 38.7 0 0 1-5.5-2.6.2.2 0 0 1 0-.3l1.1-.9a.2.2 0 0 1 .2 0c11.5 5.3 24 5.3 35.4 0a.2.2 0 0 1 .2 0l1.1.9a.2.2 0 0 1 0 .3 36 36 0 0 1-5.5 2.6.2.2 0 0 0-.1.3 47.1 47.1 0 0 0 3.6 5.9.2.2 0 0 0 .2.1 58.6 58.6 0 0 0 17.8-9 .2.2 0 0 0 .1-.1c1.5-15.2-2.5-28.2-10.6-39.8a.2.2 0 0 0-.1 0zM23.7 36.4c-3.5 0-6.4-3.2-6.4-7.1s2.8-7.1 6.4-7.1c3.6 0 6.5 3.2 6.4 7.1 0 3.9-2.8 7.1-6.4 7.1zm23.6 0c-3.5 0-6.4-3.2-6.4-7.1s2.8-7.1 6.4-7.1c3.6 0 6.5 3.2 6.4 7.1 0 3.9-2.8 7.1-6.4 7.1z"/>
+        </svg>
+      </div>
+      <div>
+        <div class="link-name">Contact</div>
+        <div class="link-sub">discord.gg/WbNPqWBeBQ</div>
+      </div>
+      <span class="arrow">›</span>
+    </a>
+  </div>
+
+  <div class="footer">eclipse · they/them · england · 2025</div>
+</div>
+
+<script>
+// ─── CUSTOM CURSOR ───────────────────────────────────────────────
+const cur = document.getElementById('cursor');
+const ring = document.getElementById('cursor-ring');
+const tip = document.getElementById('tooltip');
+let mx = -100, my = -100, rx = -100, ry = -100;
+
+document.addEventListener('mousemove', e => {
+  mx = e.clientX; my = e.clientY;
+  cur.style.left = mx + 'px';
+  cur.style.top  = my + 'px';
+
+  // Tooltip
+  const el = document.elementFromPoint(mx, my);
+  const tipEl = el && el.closest('[data-tip]');
+  if (tipEl) {
+    tip.textContent = tipEl.dataset.tip;
+    tip.style.opacity = '1';
+    tip.style.left = (mx + 16) + 'px';
+    tip.style.top  = (my - 8)  + 'px';
+  } else {
+    tip.style.opacity = '0';
+  }
+});
+
+// Ring follows with lag
+function animRing() {
+  rx += (mx - rx) * 0.12;
+  ry += (my - ry) * 0.12;
+  ring.style.left = rx + 'px';
+  ring.style.top  = ry + 'px';
+  requestAnimationFrame(animRing);
+}
+animRing();
+
+// Hover state
+document.querySelectorAll('a, button, .tag, [data-tip]').forEach(el => {
+  el.addEventListener('mouseenter', () => document.body.classList.add('cursor-hover'));
+  el.addEventListener('mouseleave', () => document.body.classList.remove('cursor-hover'));
+});
+document.addEventListener('mousedown', () => document.body.classList.add('cursor-click'));
+document.addEventListener('mouseup',   () => document.body.classList.remove('cursor-click'));
+
+// Trail particles
+const trailCanvas = document.createElement('canvas');
+trailCanvas.style.cssText = 'position:fixed;inset:0;z-index:9996;pointer-events:none;width:100%;height:100%';
+document.body.appendChild(trailCanvas);
+const tc = trailCanvas.getContext('2d');
+trailCanvas.width  = window.innerWidth;
+trailCanvas.height = window.innerHeight;
+window.addEventListener('resize', () => {
+  trailCanvas.width  = window.innerWidth;
+  trailCanvas.height = window.innerHeight;
+});
+
+const particles = [];
+document.addEventListener('mousemove', e => {
+  if (Math.random() > 0.55) return;
+  particles.push({
+    x: e.clientX, y: e.clientY,
+    vx: (Math.random()-0.5)*1.2,
+    vy: (Math.random()-0.5)*1.2 - 0.5,
+    life: 1,
+    size: Math.random()*2+0.5,
+    hue: 0  // unused, all white
+  });
+});
+
+function drawTrail() {
+  tc.clearRect(0,0,trailCanvas.width,trailCanvas.height);
+  for (let i = particles.length-1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx; p.y += p.vy;
+    p.life -= 0.035;
+    if (p.life <= 0) { particles.splice(i,1); continue; }
+    tc.beginPath();
+    tc.arc(p.x, p.y, p.size * p.life, 0, Math.PI*2);
+    tc.fillStyle = `rgba(255,255,255,${p.life*0.55})`;
+    tc.fill();
+  }
+  requestAnimationFrame(drawTrail);
+}
+drawTrail();
+
+// ─── STORM BACKGROUND ───────────────────────────────────────────
+const canvas = document.getElementById('bg-canvas');
+const ctx = canvas.getContext('2d');
+let W, H;
+function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+resize();
+window.addEventListener('resize', resize);
+
+// Rain drops
+const RAIN_COUNT = 340;
+const rain = Array.from({length: RAIN_COUNT}, () => ({
+  x: Math.random(),
+  y: Math.random(),
+  len: Math.random() * 0.04 + 0.015,
+  speed: Math.random() * 0.006 + 0.004,
+  a: Math.random() * 0.25 + 0.05,
+  w: Math.random() * 0.6 + 0.3
+}));
+
+// Cloud layers (dark storm clouds)
+const clouds = [
+  { x:0.0,  y:0.05, w:0.7,  h:0.22, a:0.55, speed:0.000035, hue:220 },
+  { x:0.3,  y:0.0,  w:0.85, h:0.28, a:0.50, speed:0.000025, hue:210 },
+  { x:0.65, y:0.08, w:0.6,  h:0.20, a:0.45, speed:0.000042, hue:230 },
+  { x:-0.1, y:0.15, w:0.55, h:0.18, a:0.35, speed:0.000028, hue:215 },
+  { x:0.5,  y:0.18, w:0.7,  h:0.25, a:0.40, speed:0.000038, hue:225 },
+];
+
+// Lightning bolts
+const bolts = [];
+let nextBolt = 1500 + Math.random() * 3000;
+let lastTime = 0;
+
+function spawnBolt() {
+  const x = 0.2 + Math.random() * 0.6;
+  const segments = [];
+  let cx = x * W, cy = H * 0.05;
+  const endY = H * (0.35 + Math.random() * 0.3);
+  while (cy < endY) {
+    const nx = cx + (Math.random() - 0.5) * 80;
+    const ny = cy + 30 + Math.random() * 40;
+    segments.push([cx, cy, nx, ny]);
+    cx = nx; cy = ny;
+  }
+  bolts.push({ segments, life: 1, flash: 1, branches: [] });
+
+  // 1-2 branches
+  const branchFrom = segments[Math.floor(segments.length * 0.3 + Math.random() * segments.length * 0.3)];
+  if (branchFrom) {
+    const bsegs = [];
+    let bx = branchFrom[2], by = branchFrom[3];
+    for (let i = 0; i < 4; i++) {
+      const nx = bx + (Math.random() - 0.4) * 55;
+      const ny = by + 20 + Math.random() * 30;
+      bsegs.push([bx, by, nx, ny]);
+      bx = nx; by = ny;
+    }
+    bolts[bolts.length-1].branches.push(bsegs);
+  }
+}
+
+let t = 0;
+function draw(now) {
+  t++;
+  const dt = now - lastTime;
+  lastTime = now;
+
+  // Pure black sky
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, W, H);
+
+  // Storm cloud gradient wash at top
+  const skyGrad = ctx.createLinearGradient(0, 0, 0, H * 0.6);
+  skyGrad.addColorStop(0,   'rgba(8,8,18,0.98)');
+  skyGrad.addColorStop(0.4, 'rgba(4,4,12,0.85)');
+  skyGrad.addColorStop(1,   'rgba(0,0,0,0)');
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Lightning flash on whole scene
+  bolts.forEach(b => {
+    if (b.flash > 0.05) {
+      ctx.fillStyle = `rgba(180,200,255,${b.flash * 0.07})`;
+      ctx.fillRect(0, 0, W, H);
+    }
+  });
+
+  // Dark storm clouds
+  clouds.forEach((c, i) => {
+    const cx = ((c.x + t * c.speed) % 1.4 - 0.2) * W;
+    const cy = c.y * H;
+    const gw = c.w * W;
+    const gh = c.h * H;
+
+    // Multiple overlapping radial gradients per cloud for depth
+    for (let layer = 0; layer < 3; layer++) {
+      const ox = (layer - 1) * gw * 0.18;
+      const oy = layer * gh * 0.08;
+      const g = ctx.createRadialGradient(cx+ox, cy+oy, 0, cx+ox, cy+oy, gw * (0.5 + layer*0.1));
+      const darkness = 0.12 + layer * 0.06;
+      g.addColorStop(0,   `hsla(${c.hue},15%,${darkness*100}%,${c.a * (1 - layer*0.25)})`);
+      g.addColorStop(0.5, `hsla(${c.hue},12%,${darkness*60}%,${c.a * 0.5})`);
+      g.addColorStop(1,   'rgba(0,0,0,0)');
+      ctx.save();
+      ctx.scale(1, gh / gw * 0.55);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(cx + ox, (cy + oy) * (gw / (gh * 0.55)), gw * (0.5 + layer*0.1), 0, Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+    }
+  });
+
+  // Distant glow behind clouds (purple-blue storm light)
+  const glowX = (0.4 + 0.15 * Math.sin(t * 0.00008)) * W;
+  const ambGrad = ctx.createRadialGradient(glowX, H*0.1, 0, glowX, H*0.1, W*0.5);
+  ambGrad.addColorStop(0,   `rgba(40,20,90,${0.12 + 0.04*Math.sin(t*0.00015)})`);
+  ambGrad.addColorStop(0.5, 'rgba(10,5,30,0.06)');
+  ambGrad.addColorStop(1,   'rgba(0,0,0,0)');
+  ctx.fillStyle = ambGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Lightning bolts
+  nextBolt -= dt || 16;
+  if (nextBolt <= 0) {
+    spawnBolt();
+    nextBolt = 1800 + Math.random() * 4000;
+  }
+
+  for (let i = bolts.length - 1; i >= 0; i--) {
+    const b = bolts[i];
+    b.life  -= 0.045;
+    b.flash -= 0.08;
+    if (b.life <= 0) { bolts.splice(i, 1); continue; }
+
+    const drawSegs = (segs, alpha, width) => {
+      ctx.beginPath();
+      segs.forEach(([x1,y1,x2,y2]) => { ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); });
+      ctx.strokeStyle = `rgba(200,220,255,${alpha * b.life})`;
+      ctx.lineWidth = width;
+      ctx.shadowColor = 'rgba(150,180,255,0.9)';
+      ctx.shadowBlur = 18;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    };
+
+    drawSegs(b.segments, 0.9, 1.5);
+    // glow pass
+    drawSegs(b.segments, 0.25, 5);
+    b.branches.forEach(br => {
+      drawSegs(br, 0.5, 0.8);
+    });
+  }
+
+  // Rain
+  ctx.lineCap = 'round';
+  rain.forEach(r => {
+    r.y += r.speed;
+    if (r.y > 1) { r.y = -r.len; r.x = Math.random(); }
+    ctx.beginPath();
+    ctx.moveTo(r.x * W, r.y * H);
+    ctx.lineTo(r.x * W - r.len * W * 0.15, (r.y + r.len) * H);
+    ctx.strokeStyle = `rgba(160,185,220,${r.a})`;
+    ctx.lineWidth = r.w;
+    ctx.stroke();
+  });
+
+  requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
+
+
+</script>
+</body>
+</html>
